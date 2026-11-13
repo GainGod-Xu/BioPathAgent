@@ -75,48 +75,92 @@ RETRORULES_SQLITE = (
 )
 
 # ---------------------------------------------------------------- chemistry
-# Currency metabolites: frozen rule, PLAN.md 6.3. Removed as graph NODES everywhere;
-# still available as verifier FEATURES. One list, one decision, not revisited per
-# experiment. Identified by InChIKey-14 (skeleton block) so protonation and charge
-# states collapse together.
+# Currency metabolites: PLAN.md 6.3. Removed as graph NODES everywhere; still
+# available as verifier FEATURES. Identified by InChIKey-14 (skeleton block) so
+# protonation and charge states collapse together.
 #
-# Each entry carries its justification. Adding a row is a design change: record it in
-# docs/DECISIONS.md.
-CURRENCY_NAMES = {
-    "water": "universal solvent/participant",
-    "proton": "charge balance only",
-    "ATP": "phosphoryl donor, connects unrelated chemistry",
-    "ADP": "counterpart of ATP",
-    "AMP": "counterpart of ATP",
-    "NAD(+)": "redox cofactor",
-    "NADH": "redox cofactor",
-    "NADP(+)": "redox cofactor",
-    "NADPH": "redox cofactor",
-    "CoA": "acyl carrier",
-    "phosphate": "ubiquitous leaving group",
-    "diphosphate": "ubiquitous leaving group",
-    "CO2": "ubiquitous product",
-    "O2": "ubiquitous oxidant",
-    "ammonia": "ubiquitous N donor/acceptor",
-    "ammonium": "ubiquitous N donor/acceptor",
-    "GTP": "phosphoryl donor",
-    "GDP": "counterpart of GTP",
-    "FAD": "redox cofactor",
-    "FADH2": "redox cofactor",
-    "S-adenosyl-L-methionine": "methyl donor",
-    "S-adenosyl-L-homocysteine": "counterpart of SAM",
-    "hydrogen peroxide": "ubiquitous oxidant/product",
-    "sulfate": "ubiquitous",
-    "hydrogencarbonate": "ubiquitous",
+# REVISED 2026-11-13 after experiments 03 and 04. See docs/DECISIONS.md D1.
+# The original rule was "curated names OR reaction-degree above the 99.5th
+# percentile". Experiment 03 showed the degree half selects glucose, pyruvate,
+# 2-oxoglutarate, fumarate, acetate and L-alanine - removing those as nodes deletes
+# glycolysis and the TCA cycle. Experiment 04 tested pathway breadth as a
+# replacement; it does not separate the two classes either (reference cofactors
+# reach down to breadth 21, reference intermediates up to 58).
+#
+# So the rule is now:
+#     currency(m) = breadth(m) >= CURRENCY_BREADTH_MIN  OR  m in CURATED_COFACTORS
+#
+# with the threshold set for ZERO FALSE POSITIVES rather than best accuracy. The
+# two errors are not symmetric: deleting pyruvate corrupts every pathway result
+# downstream, while leaving FAD in the graph only adds a hub node. The curated list
+# exists to catch the cofactors the threshold cannot reach, which is the job a
+# curated list is actually for.
+#
+# The curated list is keyed by InChIKey-14 because that is what the code joins on.
+# The formula is carried alongside and ASSERTED at load time - a key that no longer
+# refers to the molecule named here is a silent correctness failure, so it is
+# checked rather than trusted.
+
+# Smallest threshold with no reference intermediate above it (exp 04: max was 58,
+# 2-oxoglutarate). Calibrated on 27 hand-labelled references, NOT cross-validated.
+# Sensitivity over 40..100 is reported by experiment 04.
+CURRENCY_BREADTH_MIN = 59
+
+# ikey14 -> (formula as it appears in Rhea, justification)
+CURATED_COFACTORS = {
+    # --- reached by the breadth threshold anyway; listed so the set is readable
+    "GPRLSGONYQIRFK": ("H+", "charge balance only"),
+    "XLYOFNOQVPJJNP": ("H2O", "universal solvent/participant"),
+    "MYMOFIZGZYHOMD": ("O2", "ubiquitous oxidant"),
+    "CURLTUGMZLYLDI": ("CO2", "ubiquitous one-carbon product"),
+    "ZKHQWZAMYRWXGA": ("C10H12N5O13P3-4", "ATP, phosphoryl donor"),
+    "XTWYTFMLZFPYCI": ("C10H12N5O10P2-3", "ADP, counterpart of ATP"),
+    "BAWFJGJZGIEFAR": ("C21H26N7O14P2-", "NAD+, redox cofactor"),
+    "BOPGDPNILDQYTO": ("C21H27N7O14P2-2", "NADH, redox cofactor"),
+    "XJLXINKUBYWONI": ("C21H25N7O17P3-3", "NADP+, redox cofactor"),
+    "ACFIXJIJDZMPPO": ("C21H26N7O17P3-4", "NADPH, redox cofactor"),
+    "RGJOEKWQDUBAIZ": ("C21H32N7O16P3S-4", "free CoA, acyl carrier"),
+    "NBIIXXVUZAFLBC": ("HO4P-2", "phosphate, ubiquitous leaving group"),
+    "XPPKVPWEQAFLFU": ("HO7P2-3", "diphosphate, ubiquitous leaving group"),
+    # --- below the threshold: the reason the curated list is needed at all
+    "UDMBCSSLTHHNCD": ("C10H12N5O7P-2", "AMP, counterpart of ATP (breadth 56)"),
+    "MEFKEPWMEQBLKI": ("C15H23N6O5S+", "SAM, methyl donor (breadth 53)"),
+    "ZJUKTBDSGOFHSH": ("C14H20N6O5S", "SAH, counterpart of SAM (breadth 47)"),
+    "ANKZYBDXHMZBDK": ("C17H18N4O9P-3", "FMN, redox cofactor (breadth 49)"),
+    "YTNIXZGTHTVJBW": ("C17H21N4O9P-2", "FMNH2, redox cofactor (breadth 49)"),
+    "IMGVNJNCCGXBHD": ("C27H30N9O15P2-3", "FAD, redox cofactor (breadth 21)"),
+    "YPZRHBJKEMOYQH": ("C27H33N9O15P2-2", "FADH2, redox cofactor (breadth 21)"),
+    "QGZKDVFQNNGYKY": ("H4N+", "ammonium, ubiquitous N donor/acceptor (breadth 57)"),
+    "MHAJPDPJQMAIIY": ("H2O2", "ubiquitous oxidant/product (breadth 49)"),
+    "XCCTYIAWTASOJW": ("C9H11N2O12P2-3", "UDP, glycosyl carrier counterpart (breadth 40)"),
+    "XKMLYUALXHKNFT": ("C10H12N5O14P3-4", "GTP, phosphoryl donor"),
+    "QGWNDRXFNXRZMB": ("C10H12N5O11P2-3", "GDP, counterpart of GTP"),
+    "MAGIRAZQQVQNKP": ("Fe2S2+", "iron-sulfur cluster, protein-bound electron carrier"),
+    "XSOVBBGAMBLACL": ("Fe2S2+2", "iron-sulfur cluster, oxidised form"),
+    "CWYNVVGOOAEACU": ("Fe+2", "electron carrier"),
+    "VTLYFUHAOXGGBS": ("Fe+3", "electron carrier"),
+    "FKNQFGJONOIPTF": ("Na+", "counter-ion, carries no chemistry"),
+    "VEXZGXHMUGYJMC": ("Cl-", "counter-ion, carries no chemistry"),
 }
 
-# Degree-based rule that supplements the curated list (PLAN.md 6.3).
-CURRENCY_DEGREE_PERCENTILE = 99.5
-CURRENCY_PERCENTILE_SWEEP = (99.0, 99.5, 99.9)  # reported once, then frozen
+# SETTLED 2026-11-13 by experiments 03+04 (PLAN.md appendix B question 1).
+# All three sit below the breadth threshold and all three carry the transferred
+# carbon skeleton rather than a transferable group, so all three are NODES, not
+# currency. Recorded here because the plan listed them as deliberately open and a
+# later reader needs to see they were closed by measurement, not by taste.
+SETTLED_NOT_CURRENCY = {
+    "ZSLZBFCDCINBPY": ("C23H34N7O17P3S-4", "acetyl-CoA: breadth 55; the acetyl is "
+                                           "the transferred skeleton, not a carrier"),
+    "WHUUTDBJXJRKMK": ("C5H8NO4-", "L-glutamate: breadth 57; amino-acid metabolite"),
+    "KPGXRSRHYNQIFN": ("C5H4O5-2", "2-oxoglutarate: breadth 58; TCA intermediate"),
+    "LTYOQGRJFJAKNA": ("C24H33N7O19P3S-5", "malonyl-CoA: breadth 24; carbon donor"),
+    "BDAGIHXWWSANSR": ("CHO2-", "formate: breadth 27; C1 metabolite"),
+}
 
-# Open question, must be settled before Phase 3 (PLAN.md appendix B):
-# acetyl-CoA is context-dependent and is deliberately NOT in the list above yet.
-UNDECIDED_CURRENCY = {"acetyl-CoA", "L-glutamate", "2-oxoglutarate"}
+# Retained for the record: the superseded rule's parameters. Experiment 03 still
+# reports the sweep so the revision is auditable against what it replaced.
+CURRENCY_DEGREE_PERCENTILE = 99.5
+CURRENCY_PERCENTILE_SWEEP = (99.0, 99.5, 99.9)
 
 
 # ---------------------------------------------------------------- gates
