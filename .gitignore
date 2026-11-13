@@ -1,0 +1,25 @@
+# data & artifacts never go in git
+data/
+results/
+checkpoints/
+logs/
+*.tsv
+*.tsv.gz
+*.tar.gz
+*.sdf
+*.pkl
+*.ckpt
+*.pt
+*.npy
+*.h5
+
+# python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+*.egg-info/
+
+# editors / os
+.DS_Store
+.vscode/
