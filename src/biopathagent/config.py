@@ -60,10 +60,19 @@ KEGG_LINKS = {
 
 # RetroRules: released as a versioned dump. Resolved at fetch time rather than
 # pinned blindly, because the project has moved hosts before.
+# Verified 2026-11-13 via the Zenodo API. retrorules.org/dl/... and the record id
+# 5827427 that circulate in older workflows both return 404 / the wrong release;
+# resolve by record id instead of by the project's own host.
+#   5828017  rr02-rp2-hs   70 MB  pre-parsed rules, multiple diameters  <- default
+#   5827977  rr02-rp3-hs   61 MB
+#   5827969  rr02-rp3-nohs 43 MB
+#   18620886 RetroRules v1 SQLite, 2.4 GB, full rule set with metadata
 RETRORULES_CANDIDATES = [
-    "https://retrorules.org/dl/preparsed/rr02/rp2/hs",
-    "https://zenodo.org/records/5827427/files/retrorules_rr02_rp2_hs.tar.gz",
+    "https://zenodo.org/api/records/5828017/files/retrorules_rr02_rp2_hs.tar.gz/content",
 ]
+RETRORULES_SQLITE = (
+    "https://zenodo.org/api/records/18620886/files/retrorules_2019_rr01_sqlite.zip/content"
+)
 
 # ---------------------------------------------------------------- chemistry
 # Currency metabolites: frozen rule, PLAN.md 6.3. Removed as graph NODES everywhere;
